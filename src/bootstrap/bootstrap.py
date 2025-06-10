@@ -249,14 +249,15 @@ def run_powershell(script, *args, **kwargs):
     run(["PowerShell.exe", "/nologo", "-Command"] + script, *args, **kwargs)
 
 
-def require(cmd, exit=True, exception=False):
+def require(cmd, exit=True, exception=False, check=True):
     """Run a command, returning its output.
     On error,
-        If `exception` is `True`, raise the error
+        If `check` is `False`, return the output
+        Otherwise If `exception` is `True`, raise the error
         Otherwise If `exit` is `True`, exit the process
         Else return None."""
     try:
-        return subprocess.check_output(cmd).strip()
+        return subprocess.run(cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE).stdout.strip()
     except (subprocess.CalledProcessError, OSError) as exc:
         if exception:
             raise
@@ -330,8 +331,11 @@ def default_build_triple(verbose):
         # Apple doesn't support `-o` so this can't be used in the combined
         # uname invocation above
         ostype = require(["uname", "-o"], exit=required).decode(default_encoding)
+        ldd = require(["ldd", "--version"], check=False).decode(default_encoding)
         if ostype == "Android":
             kernel = "linux-android"
+        elif "musl" in ldd:
+            kernel = "unknown-linux-musl"
         else:
             kernel = "unknown-linux-gnu"
     elif kernel == "SunOS":
